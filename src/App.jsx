@@ -2,56 +2,71 @@ import { useState, useEffect } from "react";
 
 function App() {
   const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem("transactions");
     return saved ? JSON.parse(saved) : [];
   });
 
-  // İşlem ekleme
   const addTransaction = () => {
     if (!amount || isNaN(amount)) return;
 
     const newTransaction = {
       id: crypto.randomUUID(),
       value: Number(amount),
+      date: date, // Manuel seçilen tarih
     };
 
     setTransactions([newTransaction, ...transactions]);
     setAmount("");
   };
 
-  // Tüm işlemleri silme
   const clearTransactions = () => {
     if (window.confirm("Tüm işlemleri silmek istediğinize emin misiniz?")) {
       setTransactions([]);
     }
   };
 
-  // Tek bir işlemi silme
   const deleteTransaction = (id) => {
     setTransactions(transactions.filter((t) => t.id !== id));
   };
 
-  // Toplam gelir (pozitifler)
   const totalIncome = transactions
     .filter((t) => t.value > 0)
     .reduce((acc, t) => acc + t.value, 0);
 
-  // Toplam gider (negatifler)
   const totalExpense = transactions
     .filter((t) => t.value < 0)
     .reduce((acc, t) => acc + t.value, 0);
 
-  // Bakiye (gelir + gider)
   const balance = totalIncome + totalExpense;
 
-  // localStorage’a kaydetme
   useEffect(() => {
     localStorage.setItem("transactions", JSON.stringify(transactions));
   }, [transactions]);
 
+  const transactionsByDay = transactions.reduce((acc, t) => {
+    if (!acc[t.date]) acc[t.date] = [];
+    acc[t.date].push(t);
+    return acc;
+  }, {});
+
+  const saveDailyFile = (date) => {
+    const dayTransactions = transactionsByDay[date];
+    const blob = new Blob([JSON.stringify(dayTransactions, null, 2)], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `islemler-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div style={{ width: "300px", margin: "20px auto", fontFamily: "Arial" }}>
+    <div style={{ width: "300px", fontFamily: "Arial" }}>
       <h2>Expense Tracker</h2>
 
       <div style={{ marginBottom: "12px" }}>
@@ -61,6 +76,15 @@ function App() {
           placeholder="Tutar (+ gelir / - gider)"
           style={{ width: "100%", padding: "8px" }}
         />
+
+        {/* Tarih Seçme Kutusu */}
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ width: "100%", padding: "8px", marginTop: "6px" }}
+        />
+
         <button
           onClick={addTransaction}
           style={{
@@ -104,42 +128,77 @@ function App() {
         </button>
       </div>
 
-      <h3>İşlemler</h3>
-      <ul>
-        {transactions.map((t) => (
-          <li
-            key={t.id}
+      <h3>Günlük İşlemler</h3>
+
+      {Object.keys(transactionsByDay).map((day) => (
+        <div
+          key={day}
+          style={{
+            background: "#333",
+            padding: "10px",
+            borderRadius: "6px",
+            marginBottom: "10px",
+          }}
+        >
+          <p style={{ fontSize: "16px", fontWeight: "bold", color: "white" }}>
+            {day}
+          </p>
+
+          <ul style={{ paddingLeft: "18px" }}>
+            {transactionsByDay[day].map((t) => (
+              <li
+                key={t.id}
+                style={{
+                  color: t.value > 0 ? "lime" : "tomato",
+                  fontWeight: "bold",
+                  marginBottom: "4px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span>{t.value > 0 ? "+" : ""}{t.value} ₺</span>
+                <button
+                  onClick={() => deleteTransaction(t.id)}
+                  style={{
+                    background: "#e81f1f",
+                    color: "white",
+                    border: "none",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Sil
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={() => saveDailyFile(day)}
             style={{
-              color: t.value > 0 ? "green" : "red",
-              marginBottom: "4px",
-              fontWeight: "bold",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              width: "100%",
+              padding: "6px",
+              background: "#646cff",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              marginTop: "6px",
+              cursor: "pointer",
             }}
           >
-            <span>{t.value > 0 ? "+" : ""}{t.value} ₺</span>
-            <button
-              onClick={() => deleteTransaction(t.id)}
-              style={{
-                background: "#ee3225ff",
-                color: "white",
-                border: "none",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Sil
-            </button>
-          </li>
-        ))}
-      </ul>
+            Günü Dosya Olarak Kaydet
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
 
 export default App;
+
+
 
 
 
